@@ -37,3 +37,9 @@ optional arguments:
                         Run copying in parallel. Provide the number of the threads
   --debug               Show debug info
 ```
+
+### Contribution:
+Before push the commit, please check it with `make fmt` command that will reformat the code and run syntax and linters test
+
+### TODO:
+Just add some unit tests
