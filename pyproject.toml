@@ -7,6 +7,11 @@ authors = ["Evgeniy Shubin <evgeniy.shubin.android@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.9"
 google-cloud-storage = "^1.36.0"
+black = "^20.8b1"
+isort = "^5.7.0"
+mypy = "^0.812"
+autoflake = "^1.4"
+flake8 = "^3.8.4"
 
 [tool.poetry.dev-dependencies]
 
