@@ -6,7 +6,6 @@ import os
 import sys
 import threading
 from functools import partial
-from multiprocessing.pool import ThreadPool as Pool
 from time import time as timer
 from typing import List, Tuple
 from urllib import parse
@@ -101,20 +100,6 @@ def parallel_download_blobs(blobs: List[Blob], dst_url: str, parallel: int) -> N
         sys.exit(1)
 
     download_func = partial(_download_blob, dst_url=dst_url)
-    download = Pool(parallel).map(download_func, blobs)
-
-    for _ in download:
-        # just download a files
-        pass
-
-
-def parallel_download_blobs2(blobs: List[Blob], dst_url: str, parallel: int) -> None:
-    """ Download and save the blobs to the local filesystem in parallel. """
-    if not blobs:
-        LOG.info("No files was found in bucket by provided path")
-        sys.exit(1)
-
-    download_func = partial(_download_blob, dst_url=dst_url)
     threads = [threading.Thread(target=download_func, args=(blob,)) for blob in blobs]
     for thread in threads:
         thread.start()
@@ -153,7 +138,7 @@ def main(src_url: str, dst_url: str, recursive: bool, parallel: bool):
 
     start = timer()
     if parallel:
-        parallel_download_blobs2(blobs=blobs, dst_url=dst_url, parallel=parallel)
+        parallel_download_blobs(blobs=blobs, dst_url=dst_url, parallel=parallel)
     else:
         download_blobs(blobs=blobs, dst_url=dst_url)
     LOG.debug(f"Downloading time: {timer() - start}")
