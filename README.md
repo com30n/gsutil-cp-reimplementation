@@ -28,14 +28,14 @@ poetry shell
 usage: gscp.py [-h] [-r] [-m PARALLEL] [--debug] src_url dst_url
 
 positional arguments:
-  src_url               Bucket path, what do we have to copy
-  dst_url               Local path, where do we have to save copied
+  src_url               The whole bucket path with the schema gs://, what do we have to copy
+  dst_url               The local path where we should save the copied file
 
 optional arguments:
   -h, --help            show this help message and exit
   -r, --recursive       Download files recursively
   -m PARALLEL, --parallel PARALLEL
-                        Run copying in parallel. Provide the number of the threads
+                        Start copying in parallel. Specify the number of threads
   --debug               Show debug info
 ```
 
