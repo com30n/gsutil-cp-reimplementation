@@ -7,7 +7,7 @@ import sys
 import threading
 from functools import partial
 from time import time as timer
-from typing import List, Tuple
+from typing import Callable, List, Tuple
 from urllib import parse
 
 from google.api_core.exceptions import NotFound
@@ -26,7 +26,10 @@ except DefaultCredentialsError as e:
 
 
 def get_logging_handler(log_level: int = logging.INFO) -> logging.Handler:
-    """  """
+    """
+    Sets the stdout handler to add the ability to view tool logs.
+    It can also add a debug formatter if you use the --debug option.
+    """
     handler = logging.StreamHandler(sys.stdout)
     if log_level == logging.DEBUG:
         formatter = logging.Formatter(
@@ -41,9 +44,7 @@ LOG.addHandler(get_logging_handler())
 
 
 def get_bucket_options(bucket_url: str) -> Tuple[str, str]:
-    """
-    Get bucket name and path from the bucket url
-    """
+    """ Gets the bucket name and path from the bucket URL. """
 
     parsed_bucket_url = parse.urlparse(bucket_url)
     bucket_name = parsed_bucket_url.netloc
@@ -52,7 +53,7 @@ def get_bucket_options(bucket_url: str) -> Tuple[str, str]:
 
 
 def get_bucket(bucket_name: str) -> Bucket:
-    """ Get the bucket object and bucket path if the given bucket exists. """
+    """ Gets the bucket object to the bucket, if the bucket exists. """
 
     try:
         LOG.debug(f'Verifying connect to the bucket "{bucket_name}"...')
@@ -64,42 +65,31 @@ def get_bucket(bucket_name: str) -> Bucket:
 
     LOG.error(
         f"Bucket '{bucket_name}' does not exist.",
-        "Try to use an absolute path to the files.",
+        "Try set an absolute path.",
     )
     sys.exit(1)
 
 
 def _download_blob(blob: Blob, dst_url: str) -> None:
-    """ Download and save one blob to the local filesystem. """
+    """ Downloads and saves a single large binary object to the local file system. """
 
     download_path = os.path.join(dst_url, blob.name)
     if not os.path.exists(os.path.dirname(download_path)):
         try:
             os.makedirs(os.path.dirname(download_path))
         except FileExistsError:
+            # It just only need to prevent an error with parallel download
+            # When makedirs could be called a several times
             pass
     LOG.info(f'Downloading "{blob.name}" to "{download_path}"')
     blob.download_to_filename(download_path)
 
 
-def download_blobs(blobs: List[Blob], dst_url: str) -> None:
-    """ Download and save the blobs to the local filesystem. """
-    if not blobs:
-        LOG.info("No files was found in bucket by provided path")
-        sys.exit(1)
+def _parallel_download_blobs(
+    blobs: List[Blob], download_func: Callable, parallel: int
+) -> None:
+    """ Downloads and saves multiple blobs to the local file system in parallel. """
 
-    download_func = partial(_download_blob, dst_url=dst_url)
-    for blob in blobs:
-        download_func(blob)
-
-
-def parallel_download_blobs(blobs: List[Blob], dst_url: str, parallel: int) -> None:
-    """ Download and save the blobs to the local filesystem in parallel. """
-    if not blobs:
-        LOG.info("No files was found in bucket by provided path")
-        sys.exit(1)
-
-    download_func = partial(_download_blob, dst_url=dst_url)
     threads = [threading.Thread(target=download_func, args=(blob,)) for blob in blobs]
     for thread in threads:
         thread.start()
@@ -107,18 +97,33 @@ def parallel_download_blobs(blobs: List[Blob], dst_url: str, parallel: int) -> N
         thread.join()
 
 
+def download_blobs(blobs: List[Blob], dst_url: str, parallel: int = 0) -> None:
+    """ Downloads and saves multiple blobs to the local file system. """
+    if not blobs:
+        LOG.info("No files were found in the bucket at the specified path.")
+        sys.exit(1)
+    download_func = partial(_download_blob, dst_url=dst_url)
+    if parallel:
+        _parallel_download_blobs(
+            blobs=blobs, download_func=download_func, parallel=parallel
+        )
+    else:
+        for blob in blobs:
+            download_func(blob)
+
+
 def get_blobs(
     bucket: Bucket, blob_path: str = "", recursive: bool = False
 ) -> List[Blob]:
     """
-    Get the blobs list via given blob path.
+    Gets the blobs list via given blob path.
 
-    If you provide "recursive" option the function will return the list
-    with all matched blobs by provided blob path.
+    If you pass the "recursive" option, the function returns
+    a list with all matching blobs along the specified path to the blob.
 
-    It has an one side effect: if you have a bucket structure mydir/1.txt, mydir2/2.txt
-    and you provide only /myd path to the tool with --recursive option
-    the tool will download and mydir/ and mydir2/ dirs.
+    It has one side effect: if you have a bucket structure mydir/1.txt, mydir2/2.txt
+    and you only provide the / myd path to the tool with the --recursive parameter,
+    this function will load both mydir/ and mydir2/ dirs.
     """
 
     if recursive:
@@ -137,10 +142,7 @@ def main(src_url: str, dst_url: str, recursive: bool, parallel: bool):
     blobs = get_blobs(bucket=bucket, blob_path=blob_path, recursive=recursive)
 
     start = timer()
-    if parallel:
-        parallel_download_blobs(blobs=blobs, dst_url=dst_url, parallel=parallel)
-    else:
-        download_blobs(blobs=blobs, dst_url=dst_url)
+    download_blobs(blobs=blobs, dst_url=dst_url, parallel=parallel)
     LOG.debug(f"Downloading time: {timer() - start}")
 
 
@@ -152,15 +154,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "-m",
         "--parallel",
-        help="Run copying in parallel. Provide the number of the threads",
+        help="Start copying in parallel. Specify the number of threads",
         type=int,
     )
     parser.add_argument("--debug", help="Show debug info", action="store_true")
     parser.add_argument(
-        "src_url", help="Bucket path, what do we have to copy", type=str
+        "src_url",
+        help="The whole bucket path with the schema gs://, what do we have to copy",
+        type=str,
     )
     parser.add_argument(
-        "dst_url", help="Local path, where do we have to save copied", type=str
+        "dst_url", help="The local path where we should save the copied file", type=str
     )
     args = parser.parse_args()
 

@@ -23,6 +23,7 @@ poetry shell
 ```
 
 ### Usage:
+
 ```bazaar
 usage: gscp.py [-h] [-r] [-m PARALLEL] [--debug] src_url dst_url
 
@@ -37,6 +38,23 @@ optional arguments:
                         Run copying in parallel. Provide the number of the threads
   --debug               Show debug info
 ```
+
+#### Examples:
+Download all the files from bucket in parallel:
+```bash
+./gscp.py -m 10 -r gs://my-own-bucket/ /tmp/test
+```
+
+Download the only one file from the bucket:
+```bash
+./gscp.py gs://my-own-bucket/mydir/a/1.txt /tmp/test
+```
+
+Download some files from bucket recursively:
+```bash
+./gscp.py -r gs://my-own-bucket/mydir/ /tmp/test
+```
+
 
 ### Contribution:
 Before push the commit, please check it with `make fmt` command that will reformat the code and run syntax and linters test
